@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<index>
+	<title>myflashtest2 的源代码</title>
+	<nodes>
+		<node label="html-template">
+			<node label="history">
+				<node icon="cssIcon" label="history.css" url="source/html-template/history/history.css.html"/>
+				<node label="history.js" url="source/html-template/history/history.js.txt"/>
+				<node icon="htmlIcon" label="historyFrame.html" url="source/html-template/history/historyFrame.html"/>
+			</node>
+			<node icon="htmlIcon" label="index.template.html" url="source/html-template/index.template.html"/>
+			<node icon="swfIcon" label="playerProductInstall.swf" url="source/html-template/playerProductInstall.swf"/>
+			<node label="swfobject.js" url="source/html-template/swfobject.js.txt"/>
+		</node>
+		<node label="images">
+			<node icon="imageIcon" label="beijing.jpg" url="source/images/beijing.jpg.html"/>
+			<node icon="imageIcon" label="pause.png" url="source/images/pause.png.html"/>
+			<node icon="imageIcon" label="play.png" url="source/images/play.png.html"/>
+			<node icon="imageIcon" label="sound.png" url="source/images/sound.png.html"/>
+			<node icon="imageIcon" label="sound1.png" url="source/images/sound1.png.html"/>
+		</node>
+		<node label="libs">
+		</node>
+		<node label="src">
+			<node label="assets">
+				<node icon="imageIcon" label="beijing.jpg" url="source/assets/beijing.jpg.html"/>
+			</node>
+			<node icon="cssIcon" label="myflashtest2.css" url="source/myflashtest2.css.html"/>
+			<node icon="mxmlAppIcon" selected="true" label="myflashtest2.mxml" url="source/myflashtest2.mxml.html"/>
+		</node>
+	</nodes>
+	<zipfile label="下载源代码（ZIP，237 KB）" url="myflashtest2.zip">
+	</zipfile>
+	<sdklink label="下载 Flex SDK" url="http://www.adobe.com/go/flex451_sdk_download_zh_CN">
+	</sdklink>
+</index>

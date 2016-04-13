@@ -1,0 +1,413 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Application xmlns:fx="http://ns.adobe.com/mxml/2009"
+			   xmlns:s="library://ns.adobe.com/flex/spark"
+			   xmlns:mx="library://ns.adobe.com/flex/mx"
+			   width="1181" height="666" minWidth="955" minHeight="600" backgroundColor="#0E0F0E"
+			   initialize="init()">
+	<fx:Style source="myflashtest2.css"/>
+	<fx:Declarations>
+		<!-- 将非可视元素（例如服务、值对象）放在此处 -->
+	</fx:Declarations>
+	<fx:Script>
+		<![CDATA[
+			import flash.display.Loader;
+			import flash.display.Sprite;
+			import flash.media.Sound;
+			import flash.media.SoundChannel;
+			import flash.media.SoundMixer;
+			import flash.utils.ByteArray;
+			
+			import mx.controls.Alert;
+			import mx.events.SliderEvent;
+			
+			
+			private var vi:Video;   
+			private var myCam:Camera;       
+			private var myNetS:NetStream;   
+			private var myOutNs:NetStream;    
+			private var nc:NetConnection;   
+			private var mic:Microphone;  
+			private var netGroup:NetGroup;
+			
+			////////////////////////////////////////////////////////////////////
+			private var streamname:String;
+			private var bArray:ByteArray = new ByteArray();
+			private var Ary:Array;
+			private var n:Number = 0;
+			[Bindable]
+			private var logText:String = "";
+			private var coverUrl:String;       // cover path
+			private var loader:Loader;         // loader
+			private var stageWidth:Number;     //  
+			private var stageHeight:Number;
+			
+			
+			////////////////////////////////////////////////////////////////////    
+			
+			private var _duration:Number;          
+			private var playPosition:Number;        
+			private var soundPosition:Number;    
+			private var flag:Boolean = false;           
+			private var lastVideoName:String = "";     
+			private var _url:String = "rtmfp://192.168.1.9/vod"; 
+			//private var _url:String ="rtmfp://localhost:1935";
+			
+			public function init():void{  
+				
+				nc = new NetConnection();  
+				
+				nc.connect(_url); 
+				nc.addEventListener(NetStatusEvent.NET_STATUS,netConn_onNetStatus);
+				 
+				nc.client = this;
+				
+				//setupCamera();
+			} 
+		
+			
+			
+			private function netConn_onNetStatus(event:NetStatusEvent):void {
+				log(event.info.code);
+				if(event.info.code == "NetConnection.Connect.Success") {
+					
+					
+					log("My Peer Id = "+nc.nearID);
+					
+					var groupSpec:GroupSpecifier = new GroupSpecifier("swfever");
+					groupSpec.serverChannelEnabled = true;
+					groupSpec.ipMulticastMemberUpdatesEnabled = true;
+					groupSpec.multicastEnabled = true;
+					groupSpec.postingEnabled = true;
+					
+					var groupId:String = groupSpec.groupspecWithAuthorizations();
+					
+					log("Group Id = "+groupId);
+					
+					netGroup = new NetGroup(nc,groupId);
+					netGroup.addEventListener(NetStatusEvent.NET_STATUS, netGroup_onNetStatus);
+					
+				} else
+					if(event.info.code == "NetGroup.Connect.Success") {
+						
+					}
+			}
+			
+			
+			private function netGroup_onNetStatus(event:NetStatusEvent):void {
+				log(event.info.code);  
+				if(event.info.code == "NetGroup.Neighbor.Connect") {
+					log("NetGroup Neighbor Count = "+netGroup.neighborCount);
+					userList_ac.addItem(event.info.neighbor);
+				} else
+					if(event.info.code == "NetGroup.Neighbor.Disconnect") {
+						log("NetGroup Neighbor Count = "+netGroup.neighborCount);
+						userList_ac.removeItemAt(userList_ac.getItemIndex(event.info.neighbor));
+					} else
+						if(event.info.code == "NetGroup.Posting.Notify") {
+							//msgRecieved(event.info.message);
+						}
+			}
+			
+		
+			private function log(msg:String):void {
+				logText+=msg+"\n";
+			}
+			
+			/*
+			private function setupGroup():void{ 
+				var gorupspec:GroupSpecifier = new GroupSpecifier("myGroup/g1"); 
+				gorupspec.serverChannelEnabled = true; 
+				gorupspec.postingEnabled = true; 
+				netGroup = new NetGroup (nc,gorupspec.groupspecWithAuthorizations()); 
+				netGroup.addEventListener(NetStatusEvent.NET_STATUS,groupStatusHandler); 
+				trace (netGroup.info.objectReplicationSendBytesPerSecond);
+				trace (netGroup.info.routingReceiveBytesPerSecond);
+			}
+			
+			*/
+			
+			
+			private function groupStatusHandler(event:NetStatusEvent):void
+			{
+				trace("event.info.code: " + event.info.code);
+				
+				switch (event.info.code)
+				{
+					case "NetGroup.Connect.Success":
+						//trace(nc.connected + ' --> playVideo ');   
+						
+						break;
+					case "NetGroup.Connect.Rejected":
+						// Handle this case here.
+						//displayAlert(UIConfig.ALERT_MSG_CONNECTION_FAIL);
+						break;
+				}
+			}
+			
+			public function onBWDone():void{}
+			
+			public function clickConnect():void{   
+				nc.addEventListener(NetStatusEvent.NET_STATUS,nsHandler);                         
+			}     
+			
+			public function nsHandler(evt:NetStatusEvent):void{   
+				if (evt.info.code == "NetConnection.Connect.Success"){
+					playClick();  
+					
+				}else{   
+					Alert.show("fail");       
+				}       
+			}   
+			
+			public function playClick():void{      
+				if(vi != null){   
+					vi.clear();   
+					vdisplay.removeChild(vi);   
+					vi = new Video();   
+					vi.width = 320;   
+					vi.height = 240;
+					vi.attachCamera(myCam);   
+					vdisplay.addChild(vi);   
+				}   
+				myOutNs = new NetStream(nc);          
+				myOutNs.attachCamera(myCam);      
+				myOutNs.attachAudio(mic);          
+				lastVideoName = "red5RecordDemo_" + Math.random()+getTimer();   
+				myOutNs.publish(lastVideoName, "record");   
+				
+			}     
+			
+			public function stopClick():void{   
+				
+				myOutNs.close();    
+				vi.clear();   
+				vdisplay.removeChild(vi);     
+				
+			}   
+			
+			
+			private function pauseMyVideo():void
+			{
+				
+				myNetS.seek(0);
+				Pause.enabled = false;
+				Play.enabled=true;
+				myNetS.pause();
+			}
+			
+			
+			public function playMyVideo():void{   
+				
+				    Play.enabled= false;
+				
+					if ( myNetS != null )
+					{
+						// Stop and close previous NetStream.
+						stopClick();
+					}
+					
+					if(nc!=null){   
+						addEventListener(Event.ENTER_FRAME,onEnterFrame);   
+						myNetS = new NetStream(nc);   
+						
+						var customClient:Object = new Object();   
+						customClient.onMetaData = function(metadata:Object):void{   
+							_duration = metadata.duration;  
+							t_sh.maximum = _duration;  
+						}   
+						myNetS.client = customClient;   
+						
+						vi = new Video();   
+						vi.width = 720;   
+						vi.height = 480;   
+						vi.attachNetStream(myNetS);   
+						vdisplay.addChild(vi);    
+						streamname="sample";
+						myNetS.play(streamname); 
+						
+						
+						//////////////////////////////////////////////////////////////////   
+						//this.addEventListener(Event.ENTER_FRAME,showBar);
+						/////////////////////////////////////////////////////////////////   
+				}
+				
+				
+				
+					
+					
+					addEventListener(Event.ENTER_FRAME,onEnterFrame);    
+				}    
+			
+			
+			//////////////////////////////////////////////////////////////////////////     
+			/*      private function showBar(event:Event)
+			{
+			var n:int = 0;
+			this.graphics.clear();
+			SoundMixer.computeSpectrum(bArray,true,0);
+			for(var i:int=0; i < 256; i=i+16)
+			{
+			n = bArray.readFloat();
+			var num:Number = n*360;
+			this.graphics.lineStyle(10,0x99FF00,100,false,"noSacle","none");
+			this.graphics.moveTo(50+i,200);
+			this.graphics.lineTo(50+i,200-num/5);
+			}
+			
+			}  
+			//////////////////////////////////////////////////////////////////////////
+			
+			public class SwfdongSound extends Sprite {
+			
+			private var url:String = "MySound.mp3";
+			
+			private var DongSound:Sound = new Sound();
+			
+			private var  sChannel:SoundChannel;
+			
+			private var bArray:ByteArray = new ByteArray();
+			
+			private var Ary:Array;
+			
+			private var n:Number = 0;
+			
+			public function SwfdongSound() {
+			var req:URLRequest = new URLRequest(url);
+			DongSound.load(req);
+			
+			DongSound.play();
+			
+			this.addEventListener(Event.ENTER_FRAME,showBar);
+			}
+			private function showBar(event:Event){
+			n = 0;
+			
+			this.graphics.clear();
+			
+			SoundMixer.computeSpectrum(bArray,true,0);
+			for(var i=0; i < 256; i=i+16)
+			{
+			
+			n = bArray.readFloat();
+			
+			var num:Number = n*360;
+			
+			this.graphics.lineStyle(10,0x99FF00,100,false,"noSacle","none");
+			
+			this.graphics.moveTo(50+i,200);
+			
+			this.graphics.lineTo(50+i,200-num/5);
+			}
+			
+			}  
+			}
+			
+			
+			*/
+			
+			
+			
+			public function setupCamera():void{   
+				
+				myCam = Camera.getCamera();    
+				if(myCam != null){   
+					myCam.addEventListener(StatusEvent.STATUS,onStatusHandler);   
+					myCam.setMode(545,240,30);   
+					myCam.setQuality(0,70);   
+					vi = new Video();   
+					vi.width = 545;   
+					vi.height = 240;   
+					vi.attachCamera(myCam);   
+					vdisplay.addChild(vi);   
+					
+				}   
+				mic = Microphone.getMicrophone();   
+				if(mic != null){   
+					mic.setSilenceLevel(0,-1);    
+					mic.gain = 80;    
+				}   
+			}   
+			
+			private function onStatusHandler(event:StatusEvent):void{   
+				if(!myCam.muted){    
+					
+				}else{   
+					Alert.show("no video")   
+				}   
+				myCam.removeEventListener(StatusEvent.STATUS,onStatusHandler);   
+			}   
+			
+			public function thumbPress(event:SliderEvent):void{   
+				myNetS.togglePause();   
+				removeEventListener(Event.ENTER_FRAME,onEnterFrame);   
+			}   
+			private function thumbChanges(event:SliderEvent):void{   
+				playPosition = t_sh.value;          
+				myNetS.seek(playPosition);    
+				addEventListener(Event.ENTER_FRAME,onEnterFrame);   
+			}   
+			private function thumbRelease(event:SliderEvent):void{        
+				myNetS.seek(playPosition);                              
+				myNetS.togglePause();   
+				addEventListener(Event.ENTER_FRAME,onEnterFrame);   
+			}   
+			public function onEnterFrame(event:Event):void{   
+				if(_duration > 0 && myNetS.time > 0){  
+					t_sh.value =myNetS.time;   
+					lbtime.text = formatTimes(myNetS.time) + " / "+ formatTimes(_duration);   
+				}      
+				if(formatTimes(myNetS.time)==formatTimes(_duration)){   
+					if(flag==true){       
+						removeEventListener(Event.ENTER_FRAME,onEnterFrame);   
+						myNetS.close();       
+						lbtime.text = "0:00 / "+ formatTimes(_duration);   
+					}   
+					setTimeout(function():void{flag = true;},1000);   
+				}   
+			}   
+			
+			private function formatTimes(value:int):String{   
+				var result:String = (value % 60).toString();   
+				if (result.length == 1){   
+					result = Math.floor(value / 60).toString() + ":0" + result;   
+				} else {   
+					result = Math.floor(value / 60).toString() + ":" + result;   
+				}   
+				return result;   
+			}     
+			
+			private function sound_thumbChanges(event:SliderEvent):void{
+				soundPosition=th_sound.value;
+			}   
+			private function sound_thumbRelease(event:SliderEvent):void{   
+				vdisplay.volume = soundPosition;   
+			} 
+		]]>
+	</fx:Script>
+	
+	
+	<mx:VideoDisplay x="109" y="38" width="720" height="480" id="vdisplay"/>   
+	<s:TextArea left="829" right="0" bottom="148" height="90" borderColor="#B22828"
+				contentBackgroundColor="#650808" editable="false" text="{logText}"/>
+	<mx:Button id="Play" x="109" y="525" width="50" height="47" click="playMyVideo()"
+			   icon="@Embed('images/play.png')"/>   
+	<mx:HSlider x="366" y="526" width="143" id="t_sh" thumbPress="thumbPress(event)" thumbRelease="thumbRelease(event)" change="thumbChanges(event)"/>   
+	<mx:Label x="386" y="540" text="0:00/0:00" width="89" textAlign="center" height="18" id="lbtime"/>   
+	<mx:HSlider x="366" y="552" width="143" id="th_sound" minimum="0" maximum="1" value="{vdisplay.volume}" change="sound_thumbChanges(event)" thumbRelease="sound_thumbRelease(event)"/>   
+	<mx:Label x="298" y="554" text="音量调节" height="20" width="60" textAlign="center"/> 
+	<s:Label x="830" y="408" width="351" height="20" backgroundColor="#68370B" chromeColor="#DD1C1C"
+			 fontSize="19" text="登录消息" textAlign="center" verticalAlign="middle"/>
+	<s:List id="userList" x="829" y="62" width="352" height="345" borderColor="#9C1313"
+			contentBackgroundColor="#562009">
+		<s:ArrayCollection id="userList_ac" />
+	</s:List>
+	<s:Label x="830" y="39" width="351" height="23" backgroundColor="#550808" chromeColor="#EA1C0D"
+			 color="#E53018" fontFamily="中易黑体" fontSize="16" text="用户列表" textAlign="center"
+			 verticalAlign="middle"/>
+	<s:Label x="304" y="526" width="60" height="22" text="播放进度"/>
+	<mx:Button id="Pause" x="181" y="526" width="50" height="47" click="pauseMyVideo()"
+			   icon="@Embed('images/pause.png')"/>
+
+
+</s:Application>
+
